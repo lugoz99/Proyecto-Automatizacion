@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -9,6 +9,7 @@ from PyQt5.QtWidgets import (
     QTableWidgetItem,
     QPushButton,
     QScrollArea,
+    QComboBox,
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QFont, QColor
@@ -17,8 +18,9 @@ from widgets.modern_card import ModernCard
 
 
 class HistorialSection(QScrollArea):
-    def __init__(self):
+    def __init__(self, parent_app=None):
         super().__init__()
+        self.parent_app = parent_app
         self.setWidgetResizable(True)
         self.setStyleSheet("border: none;")
 
@@ -31,45 +33,19 @@ class HistorialSection(QScrollArea):
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(20)
 
-        # Title
-        title = QLabel("📋 Historial Completo de Lecturas")
+        title = QLabel("📋 Historial de Lecturas")
         title.setStyleSheet(
             """
             font-size: 24px;
             font-weight: bold;
             color: #0f172a;
-            font-family: 'Segoe UI', Arial;
             margin-bottom: 10px;
         """
         )
         layout.addWidget(title)
 
-        # Stats cards row
-        stats_cards_layout = QHBoxLayout()
-        stats_cards_layout.setSpacing(20)
-
-        self.hist_total_card = ModernCard(
-            "Total Lecturas", "0", "Desde inicio", "📊", "blue"
-        )
-        self.hist_valid_card = ModernCard(
-            "Lecturas Válidas", "0", "Sin errores", "✓", "green"
-        )
-        self.hist_error_card = ModernCard(
-            "Lecturas Erróneas", "0", "Con problemas", "✗", "red"
-        )
-        self.hist_avg_card = ModernCard(
-            "Nivel Promedio", "--", "Últimas 50 lecturas", "📈", "purple"
-        )
-
-        stats_cards_layout.addWidget(self.hist_total_card)
-        stats_cards_layout.addWidget(self.hist_valid_card)
-        stats_cards_layout.addWidget(self.hist_error_card)
-        stats_cards_layout.addWidget(self.hist_avg_card)
-        layout.addLayout(stats_cards_layout)
-
-        # History table
-        table_frame = QFrame()
-        table_frame.setStyleSheet(
+        filters_frame = QFrame()
+        filters_frame.setStyleSheet(
             """
             QFrame {
                 background: white;
@@ -78,48 +54,71 @@ class HistorialSection(QScrollArea):
             }
         """
         )
-        table_layout = QVBoxLayout(table_frame)
-        table_layout.setContentsMargins(24, 20, 24, 20)
-        table_layout.setSpacing(16)
+        filters_layout = QVBoxLayout(filters_frame)
+        filters_layout.setContentsMargins(20, 20, 20, 20)
 
-        # Header with controls
-        header_layout = QHBoxLayout()
-        table_title = QLabel("📋 Tabla de Registros")
-        table_title.setStyleSheet(
-            """
-            font-size: 18px;
-            font-weight: 700;
-            color: #0f172a;
-            font-family: 'Segoe UI', Arial;
-        """
+        filters_header = QLabel("🔍 Filtros de Búsqueda")
+        filters_header.setStyleSheet(
+            "font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 15px;"
         )
-        header_layout.addWidget(table_title)
-        header_layout.addStretch()
+        filters_layout.addWidget(filters_header)
 
-        # Buttons
-        search_btn = QPushButton("🔍 Buscar")
-        search_btn.setStyleSheet(
+        controls_layout = QHBoxLayout()
+
+        time_layout = QVBoxLayout()
+        time_label = QLabel("Período:")
+        time_label.setStyleSheet("font-size: 13px; color: #64748b; margin-bottom: 5px;")
+        time_layout.addWidget(time_label)
+
+        self.time_combo = QComboBox()
+        self.time_combo.addItems(
+            ["Últimas 24 horas", "Últimas 6 horas", "Última hora", "Últimos 7 días"]
+        )
+        self.time_combo.setStyleSheet(
             """
-            QPushButton {
-                background: #f1f5f9;
-                color: #475569;
+            QComboBox {
+                padding: 8px 12px;
                 border: 1px solid #e2e8f0;
-                padding: 8px 16px;
                 border-radius: 8px;
-                font-size: 13px;
-                font-weight: 600;
-            }
-            QPushButton:hover {
-                background: #e2e8f0;
-                border-color: #cbd5e1;
+                background: white;
+                min-width: 150px;
             }
         """
         )
-        search_btn.setCursor(Qt.PointingHandCursor)
-        header_layout.addWidget(search_btn)
+        self.time_combo.currentIndexChanged.connect(self.load_historical_data)
+        time_layout.addWidget(self.time_combo)
+        controls_layout.addLayout(time_layout)
 
-        export_btn = QPushButton("📥 Exportar")
-        export_btn.setStyleSheet(
+        type_layout = QVBoxLayout()
+        type_label = QLabel("Tipo:")
+        type_label.setStyleSheet("font-size: 13px; color: #64748b; margin-bottom: 5px;")
+        type_layout.addWidget(type_label)
+
+        self.type_combo = QComboBox()
+        self.type_combo.addItems(
+            ["Todas las lecturas", "Solo válidas", "Solo con errores"]
+        )
+        self.type_combo.setStyleSheet(
+            """
+            QComboBox {
+                padding: 8px 12px;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                background: white;
+                min-width: 150px;
+            }
+        """
+        )
+        self.type_combo.currentIndexChanged.connect(self.load_historical_data)
+        type_layout.addWidget(self.type_combo)
+        controls_layout.addLayout(type_layout)
+
+        controls_layout.addStretch()
+
+        buttons_layout = QHBoxLayout()
+
+        refresh_btn = QPushButton("🔄 Actualizar")
+        refresh_btn.setStyleSheet(
             """
             QPushButton {
                 background: #dbeafe;
@@ -136,8 +135,28 @@ class HistorialSection(QScrollArea):
             }
         """
         )
-        export_btn.setCursor(Qt.PointingHandCursor)
-        header_layout.addWidget(export_btn)
+        refresh_btn.clicked.connect(self.load_historical_data)
+        buttons_layout.addWidget(refresh_btn)
+
+        export_btn = QPushButton("📥 Exportar CSV")
+        export_btn.setStyleSheet(
+            """
+            QPushButton {
+                background: #dcfce7;
+                color: #15803d;
+                border: 1px solid #86efac;
+                padding: 8px 16px;
+                border-radius: 8px;
+                font-size: 13px;
+                font-weight: 600;
+            }
+            QPushButton:hover {
+                background: #bbf7d0;
+                border-color: #4ade80;
+            }
+        """
+        )
+        buttons_layout.addWidget(export_btn)
 
         clear_btn = QPushButton("🗑️ Limpiar")
         clear_btn.setStyleSheet(
@@ -157,72 +176,65 @@ class HistorialSection(QScrollArea):
             }
         """
         )
-        clear_btn.setCursor(Qt.PointingHandCursor)
         clear_btn.clicked.connect(self.clear_history)
-        header_layout.addWidget(clear_btn)
+        buttons_layout.addWidget(clear_btn)
 
-        table_layout.addLayout(header_layout)
+        controls_layout.addLayout(buttons_layout)
+        filters_layout.addLayout(controls_layout)
+        layout.addWidget(filters_frame)
 
-        # Stats row
-        stats_layout = QHBoxLayout()
-        stats_layout.setSpacing(12)
+        stats_cards_layout = QHBoxLayout()
+        stats_cards_layout.setSpacing(20)
 
-        self.historial_total_readings_label = QLabel("Total: 0 lecturas")
-        self.historial_total_readings_label.setStyleSheet(
+        self.hist_total_card = ModernCard(
+            "Total Lecturas", "0", "Período seleccionado", "📊", "blue"
+        )
+        self.hist_valid_card = ModernCard(
+            "Lecturas Válidas", "0", "Sin errores", "✓", "green"
+        )
+        self.hist_error_card = ModernCard(
+            "Lecturas Erróneas", "0", "Con problemas", "✗", "red"
+        )
+        self.hist_avg_card = ModernCard(
+            "Nivel Promedio", "--", "Promedio del período", "📈", "purple"
+        )
+
+        stats_cards_layout.addWidget(self.hist_total_card)
+        stats_cards_layout.addWidget(self.hist_valid_card)
+        stats_cards_layout.addWidget(self.hist_error_card)
+        stats_cards_layout.addWidget(self.hist_avg_card)
+        layout.addLayout(stats_cards_layout)
+
+        table_frame = QFrame()
+        table_frame.setStyleSheet(
             """
-            background: #eff6ff;
-            color: #1e40af;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
+            QFrame {
+                background: white;
+                border-radius: 16px;
+                border: 1px solid #e2e8f0;
+            }
         """
         )
-        stats_layout.addWidget(self.historial_total_readings_label)
+        table_layout = QVBoxLayout(table_frame)
+        table_layout.setContentsMargins(24, 20, 24, 20)
+        table_layout.setSpacing(16)
 
-        self.historial_valid_readings_label = QLabel("Válidas: 0")
-        self.historial_valid_readings_label.setStyleSheet(
-            """
-            background: #dcfce7;
-            color: #15803d;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-        """
-        )
-        stats_layout.addWidget(self.historial_valid_readings_label)
+        table_header = QLabel("📋 Registros de Lecturas")
+        table_header.setStyleSheet("font-size: 18px; font-weight: 700; color: #0f172a;")
+        table_layout.addWidget(table_header)
 
-        self.historial_error_readings_label = QLabel("Errores: 0")
-        self.historial_error_readings_label.setStyleSheet(
-            """
-            background: #fee2e2;
-            color: #991b1b;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 12px;
-            font-weight: 600;
-        """
-        )
-        stats_layout.addWidget(self.historial_error_readings_label)
-
-        stats_layout.addStretch()
-        table_layout.addLayout(stats_layout)
-
-        # Table
         self.history_table = QTableWidget()
         self.history_table.setColumnCount(7)
         self.history_table.setHorizontalHeaderLabels(
-            ["#", "⏰ Hora", "📏 Nivel", "📊 %", "🎯 Estado", "💧 Sensor", "✓"]
+            ["#", "⏰ Hora", "📏 Nivel", "📊 %", "🎯 Estado", "💧 Estado Fuga", "✓"]
         )
 
-        # Set column widths
         self.history_table.setColumnWidth(0, 50)
         self.history_table.setColumnWidth(1, 120)
         self.history_table.setColumnWidth(2, 100)
         self.history_table.setColumnWidth(3, 80)
         self.history_table.setColumnWidth(4, 120)
-        self.history_table.setColumnWidth(5, 100)
+        self.history_table.setColumnWidth(5, 150)
         self.history_table.setColumnWidth(6, 60)
 
         self.history_table.setSelectionBehavior(QTableWidget.SelectRows)
@@ -264,110 +276,135 @@ class HistorialSection(QScrollArea):
         """
         )
 
-        self.history_table.setMinimumHeight(450)
+        self.history_table.setMinimumHeight(400)
         table_layout.addWidget(self.history_table)
 
-        # Pagination
-        pagination_layout = QHBoxLayout()
-        self.rows_label = QLabel("Mostrando 0 de 0 registros")
-        self.rows_label.setStyleSheet("color: #64748b; font-size: 12px;")
-        pagination_layout.addWidget(self.rows_label)
-        pagination_layout.addStretch()
-        table_layout.addLayout(pagination_layout)
+        self.pagination_label = QLabel("Mostrando 0 registros")
+        self.pagination_label.setStyleSheet("color: #64748b; font-size: 12px;")
+        table_layout.addWidget(self.pagination_label)
 
         layout.addWidget(table_frame)
         self.setWidget(content)
 
-    def add_reading(self, data):
-        timestamp = datetime.now().strftime("%H:%M:%S")
-        row_num = self.history_table.rowCount() + 1
+    def load_historical_data(self):
+        try:
+            if not self.parent_app or not self.parent_app.db_manager:
+                return
 
-        # Status badge
-        if data["estado"] == "Lleno":
-            estado_badge = "🔴 Lleno"
-            bg_color = QColor(254, 226, 226)
-        elif data["estado"] == "Medio":
-            estado_badge = "🟢 Medio"
-            bg_color = QColor(220, 252, 231)
-        elif data["estado"] == "Bajo":
-            estado_badge = "🟡 Bajo"
-            bg_color = QColor(254, 243, 199)
-        else:
-            estado_badge = "🔴 Muy Bajo"
-            bg_color = QColor(254, 226, 226)
+            time_filter = self.time_combo.currentText()
+            hours_map = {
+                "Última hora": 1,
+                "Últimas 6 horas": 6,
+                "Últimas 24 horas": 24,
+                "Últimos 7 días": 168,
+            }
+            hours = hours_map.get(time_filter, 24)
 
-        # Valid badge
-        valid_badge = "✓" if data["valido"] else "✗"
-        valid_color = QColor(220, 252, 231) if data["valido"] else QColor(254, 226, 226)
+            readings = self.parent_app.db_manager.get_recent_readings(
+                hours=hours, limit=200
+            )
 
-        row_data = [
-            str(row_num),
-            timestamp,
-            f"{data['nivel']:.1f} cm",
-            f"{data['porcentaje']:.0f}%",
-            estado_badge,
-            str(data["humedad"]),
-            valid_badge,
-        ]
+            type_filter = self.type_combo.currentText()
+            if type_filter == "Solo válidas":
+                readings = [r for r in readings if r.get("valido", False)]
+            elif type_filter == "Solo con errores":
+                readings = [r for r in readings if not r.get("valido", True)]
 
-        self.history_table.insertRow(0)
+            self.display_readings(readings)
+            self.update_stats(readings)
 
-        for col, value in enumerate(row_data):
-            item = QTableWidgetItem(value)
-            item.setTextAlignment(Qt.AlignCenter)
+        except Exception as e:
+            print(f"❌ Error cargando datos históricos: {e}")
 
-            if col == 0:  # Row number
-                item.setForeground(QColor(100, 116, 139))
-                font = QFont("Segoe UI", 11, QFont.Bold)
-                item.setFont(font)
+    def display_readings(self, readings):
+        self.history_table.setRowCount(0)
 
-            if col == 4:  # Estado column
-                item.setBackground(bg_color)
-                font = QFont("Segoe UI", 12, QFont.Bold)
-                item.setFont(font)
+        for i, reading in enumerate(reversed(readings)):
+            row_pos = self.history_table.rowCount()
+            self.history_table.insertRow(row_pos)
 
-            if col == 6:  # Valid column
-                item.setBackground(valid_color)
-                font = QFont("Segoe UI", 14, QFont.Bold)
-                item.setFont(font)
+            timestamp = reading.get("timestamp", datetime.now())
+            if isinstance(timestamp, str):
+                timestamp = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
+            time_str = timestamp.strftime("%H:%M:%S")
 
-            self.history_table.setItem(0, col, item)
+            nivel = reading.get("nivel")
+            nivel_str = f"{nivel:.1f} cm" if nivel is not None else "N/A"
 
-        self.history_table.setRowHeight(0, 50)
+            porcentaje = reading.get("porcentaje")
+            porcentaje_str = f"{porcentaje:.1f}%" if porcentaje is not None else "N/A"
 
-        # Limit rows
-        if self.history_table.rowCount() > 50:
-            self.history_table.removeRow(50)
+            estado = reading.get("estado", "N/A")
+            estado_fuga = reading.get("estado_fuga", "N/A")
+            valido = reading.get("valido", False)
 
-        self.update_stats()
-
-    def update_stats(self):
-        total = self.history_table.rowCount()
-        valid_count = sum(
-            1 for i in range(total) if self.history_table.item(i, 6).text() == "✓"
-        )
-        error_count = total - valid_count
-
-        self.historial_total_readings_label.setText(f"Total: {total} lecturas")
-        self.historial_valid_readings_label.setText(f"Válidas: {valid_count}")
-        self.historial_error_readings_label.setText(f"Errores: {error_count}")
-        self.rows_label.setText(f"Mostrando {min(total, 50)} de {total} registros")
-
-        # Update cards
-        self.hist_total_card.update_value(str(total))
-        self.hist_valid_card.update_value(str(valid_count))
-        self.hist_error_card.update_value(str(error_count))
-
-        if total > 0:
-            percentages = [
-                float(self.history_table.item(i, 3).text().rstrip("%"))
-                for i in range(total)
+            items = [
+                QTableWidgetItem(str(i + 1)),
+                QTableWidgetItem(time_str),
+                QTableWidgetItem(nivel_str),
+                QTableWidgetItem(porcentaje_str),
+                QTableWidgetItem(estado),
+                QTableWidgetItem(estado_fuga),
+                QTableWidgetItem("✓" if valido else "✗"),
             ]
-            avg = sum(percentages) / total
-            self.hist_avg_card.update_value(f"{avg:.1f}%")
-        else:
-            self.hist_avg_card.update_value("--")
+
+            for col, item in enumerate(items):
+                item.setTextAlignment(Qt.AlignCenter)
+
+                if col == 4:
+                    if estado == "Lleno":
+                        item.setBackground(QColor(254, 226, 226))
+                    elif estado == "Medio":
+                        item.setBackground(QColor(220, 252, 231))
+                    elif estado == "Bajo":
+                        item.setBackground(QColor(254, 243, 199))
+                    elif estado == "MuyBajo":
+                        item.setBackground(QColor(254, 226, 226))
+
+                elif col == 6:
+                    item.setBackground(
+                        QColor(220, 252, 231) if valido else QColor(254, 226, 226)
+                    )
+
+                self.history_table.setItem(row_pos, col, item)
+
+        self.pagination_label.setText(f"Mostrando {len(readings)} registros")
+
+    def update_stats(self, readings):
+        total = len(readings)
+        validas = sum(1 for r in readings if r.get("valido", False))
+        errores = total - validas
+
+        niveles = [
+            r.get("porcentaje", 0) for r in readings if r.get("porcentaje") is not None
+        ]
+        promedio = sum(niveles) / len(niveles) if niveles else 0
+
+        self.hist_total_card.update_value(str(total))
+        self.hist_valid_card.update_value(str(validas))
+        self.hist_error_card.update_value(str(errores))
+        self.hist_avg_card.update_value(f"{promedio:.1f}%")
+
+    def add_reading(self, data):
+        current_rows = self.history_table.rowCount()
+        if current_rows >= 50:
+            self.history_table.removeRow(0)
+
+        self.history_table.insertRow(current_rows)
+
+    def export_to_csv(self):
+        try:
+            from datetime import datetime
+
+            filename = f"lecturas_tanque_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
+            print(f"📤 Exportando a {filename}...")
+        except Exception as e:
+            print(f"❌ Error exportando CSV: {e}")
 
     def clear_history(self):
         self.history_table.setRowCount(0)
-        self.update_stats()
+        self.hist_total_card.update_value("0")
+        self.hist_valid_card.update_value("0")
+        self.hist_error_card.update_value("0")
+        self.hist_avg_card.update_value("--")
+        self.pagination_label.setText("Mostrando 0 registros")

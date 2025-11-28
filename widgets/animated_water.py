@@ -10,6 +10,7 @@ class AnimatedWaterWidget(QWidget):
         self._target_level = 0
         self.estado = "SinSensor"
         self.valido = False
+
         self.setMinimumSize(280, 420)
 
         self.animation = QPropertyAnimation(self, b"water_level")
@@ -29,6 +30,7 @@ class AnimatedWaterWidget(QWidget):
         self._target_level = target_level
         self.estado = estado
         self.valido = valido
+
         self.animation.stop()
         self.animation.setStartValue(self._water_level)
         self.animation.setEndValue(target_level)
@@ -37,10 +39,10 @@ class AnimatedWaterWidget(QWidget):
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing)
+
         width = self.width()
         height = self.height()
 
-        # Colores según estado
         if not self.valido:
             color = QColor(156, 163, 175)
         elif self.estado == "Lleno":
@@ -52,7 +54,6 @@ class AnimatedWaterWidget(QWidget):
         else:
             color = QColor(220, 38, 38)
 
-        # Dibujar tanque
         tank_width = width * 0.70
         tank_height = height * 0.88
         tank_x = (width - tank_width) / 2
@@ -62,7 +63,6 @@ class AnimatedWaterWidget(QWidget):
         painter.setBrush(QColor(255, 255, 255))
         painter.drawRect(int(tank_x), int(tank_y), int(tank_width), int(tank_height))
 
-        # Dibujar agua
         if self.valido and self._water_level > 0:
             water_height = (self._water_level / 100) * tank_height
             water_y = tank_y + tank_height - water_height
@@ -73,12 +73,13 @@ class AnimatedWaterWidget(QWidget):
 
             painter.setPen(Qt.NoPen)
             painter.setBrush(QBrush(gradient))
+
             painter.drawRect(
                 int(tank_x) + 4, int(water_y), int(tank_width) - 8, int(water_height)
             )
 
-        # Texto porcentaje
         painter.setPen(QPen(QColor(51, 65, 85)))
         painter.setFont(QFont("Segoe UI", 22, QFont.Bold))
+
         text = f"{self._water_level:.1f}%"
         painter.drawText(0, 0, width, int(tank_y - 5), Qt.AlignCenter, text)

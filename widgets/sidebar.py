@@ -1,5 +1,6 @@
 from PyQt5.QtWidgets import QFrame, QVBoxLayout, QPushButton, QLabel
 from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
 
 
 class Sidebar(QFrame):
@@ -15,33 +16,31 @@ class Sidebar(QFrame):
             }
         """
         )
-        self.setFixedWidth(260)
+        self.setFixedWidth(280)
         self.current_active = 0
 
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        # Logo
-        logo_container = QLabel("💧 TankMonitor")
+        logo_container = QLabel("💧 Sistema de Monitoreo\n<small>Versión 1.0</small>")
         logo_container.setStyleSheet(
             """
             color: white;
-            font-size: 22px;
+            font-size: 18px;
             font-weight: bold;
-            font-family: 'Segoe UI', Arial;
             padding: 30px 20px;
             background: transparent;
             border-bottom: 1px solid #334155;
+            line-height: 1.4;
         """
         )
         logo_container.setAlignment(Qt.AlignCenter)
         layout.addWidget(logo_container)
 
-        # Menu Items
         self.menu_items = []
         self.menu_data = [
-            ("📊", "Dashboard"),
+            ("📊", "Monitoreo"),
             ("📋", "Historial"),
             ("⚙️", "Configuración"),
             ("🔔", "Alertas"),
@@ -56,14 +55,14 @@ class Sidebar(QFrame):
 
         layout.addStretch()
 
-        # Footer info
-        footer = QLabel("🟢 Sistema Activo\n📡 Conectado")
+        footer = QLabel("🟢 Monitoreo Activo\n📡 Tanque Remoto")
         footer.setStyleSheet(
             """
             color: #64748b;
             font-size: 11px;
             padding: 20px;
             border-top: 1px solid #334155;
+            line-height: 1.4;
         """
         )
         footer.setAlignment(Qt.AlignCenter)
@@ -76,6 +75,7 @@ class Sidebar(QFrame):
         btn.setProperty("active", active)
         self.update_button_style(btn)
         btn.setCursor(Qt.PointingHandCursor)
+        btn.setFixedHeight(60)
         return btn
 
     def update_button_style(self, btn):

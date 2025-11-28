@@ -1,4 +1,3 @@
-import random
 from PyQt5.QtWidgets import (
     QWidget,
     QVBoxLayout,
@@ -7,11 +6,8 @@ from PyQt5.QtWidgets import (
     QFrame,
     QScrollArea,
 )
-from PyQt5.QtGui import (
-    QPainter,
-    QColor,
-)
-from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QPainter, QColor
 from PyQt5.QtChart import QChart, QChartView, QValueAxis, QSplineSeries
 
 from widgets.animated_water import AnimatedWaterWidget
@@ -19,8 +15,9 @@ from widgets.modern_card import ModernCard
 
 
 class DashboardSection(QScrollArea):
-    def __init__(self):
+    def __init__(self, parent_app=None):
         super().__init__()
+        self.parent_app = parent_app
         self.setWidgetResizable(True)
         self.setStyleSheet("border: none;")
 
@@ -29,7 +26,6 @@ class DashboardSection(QScrollArea):
 
         self.setup_ui()
         self.setup_chart()
-        self.setup_data_timer()
 
     def setup_ui(self):
         content = QWidget()
@@ -37,7 +33,6 @@ class DashboardSection(QScrollArea):
         layout.setContentsMargins(30, 30, 30, 30)
         layout.setSpacing(24)
 
-        # Cards row
         cards_layout = QHBoxLayout()
         cards_layout.setSpacing(20)
 
@@ -47,9 +42,7 @@ class DashboardSection(QScrollArea):
         self.card_porcentaje = ModernCard(
             "Capacidad", "--", "0% del tanque", "📊", "green"
         )
-        self.card_humedad = ModernCard(
-            "Sensor Humedad", "--", "Sin fugas", "💦", "cyan"
-        )
+        self.card_humedad = ModernCard("Estado Fugas", "--", "Sin datos", "💦", "cyan")
         self.card_lecturas = ModernCard("Lecturas", "0", "0 errores", "✓", "purple")
 
         cards_layout.addWidget(self.card_nivel)
@@ -58,11 +51,9 @@ class DashboardSection(QScrollArea):
         cards_layout.addWidget(self.card_lecturas)
         layout.addLayout(cards_layout)
 
-        # Visualization row
         viz_layout = QHBoxLayout()
         viz_layout.setSpacing(20)
 
-        # Tank
         tank_frame = QFrame()
         tank_frame.setStyleSheet(
             """
@@ -82,7 +73,6 @@ class DashboardSection(QScrollArea):
             font-size: 16px;
             font-weight: 600;
             color: #0f172a;
-            font-family: 'Segoe UI', Arial;
             margin-bottom: 10px;
         """
         )
@@ -90,9 +80,8 @@ class DashboardSection(QScrollArea):
 
         self.tank_widget = AnimatedWaterWidget()
         tank_layout.addWidget(self.tank_widget, alignment=Qt.AlignCenter)
-        viz_layout.addWidget(tank_frame, 35)
+        viz_layout.addWidget(tank_frame)
 
-        # Chart
         chart_frame = QFrame()
         chart_frame.setStyleSheet(
             """
@@ -106,13 +95,12 @@ class DashboardSection(QScrollArea):
         chart_layout = QVBoxLayout(chart_frame)
         chart_layout.setContentsMargins(24, 20, 24, 20)
 
-        chart_title = QLabel("📈 Nivel en Tiempo Real (últimos 30 segundos)")
+        chart_title = QLabel("📈 Nivel en Tiempo Real")
         chart_title.setStyleSheet(
             """
             font-size: 16px;
             font-weight: 600;
             color: #0f172a;
-            font-family: 'Segoe UI', Arial;
             margin-bottom: 10px;
         """
         )
@@ -122,15 +110,19 @@ class DashboardSection(QScrollArea):
         self.chart_view.setRenderHint(QPainter.Antialiasing)
         self.chart_view.setStyleSheet("border: none;")
         chart_layout.addWidget(self.chart_view)
-        viz_layout.addWidget(chart_frame, 65)
+        viz_layout.addWidget(chart_frame)
 
         layout.addLayout(viz_layout)
         self.setWidget(content)
 
     def setup_chart(self):
         self.series = QSplineSeries()
-        self.series.setColor(QColor(59, 130, 246))
 
+        # self.series.setColor(QColor("#3b82f6"))  # Así sí funciona
+        pen = self.series.pen()
+        pen.setColor(QColor("#3b82f6"))
+        pen.setWidth(2)
+        self.series.setPen(pen)
         self.chart = QChart()
         self.chart.addSeries(self.series)
         self.chart.legend().hide()
@@ -153,75 +145,50 @@ class DashboardSection(QScrollArea):
 
         self.chart_view.setChart(self.chart)
 
-    def setup_data_timer(self):
-        self.data_timer = QTimer()
-        self.data_timer.timeout.connect(self.simulate_data)
-        self.data_timer.start(2000)
+    def update_with_real_data(self, data):
+        try:
+            if not data:
+                return
 
-    def simulate_data(self):
-        base_nivel = 8.0
-        variation = random.uniform(-2, 3)
-        nivel = max(3, min(20, base_nivel + variation))
-        porcentaje = ((20 - nivel) / 17) * 100
-        porcentaje = max(0, min(100, porcentaje))
+            # 🔧 VERSIÓN CORREGIDA - Sin duplicados
+            nivel = data.get("nivel", 0)
+            porcentaje = data.get("porcentaje", 0)
+            humedad = data.get("humedad", 0)
+            estado = data.get("estado", "--")
+            estado_fuga = data.get("estado_fuga", "Sin datos")
+            lecturas_ok = data.get("lecturas_ok", 0)
+            lecturas_error = data.get("lecturas_error", 0)
+            valido = data.get("valido", False)
 
-        if porcentaje >= 80:
-            estado = "Lleno"
-        elif porcentaje >= 50:
-            estado = "Medio"
-        elif porcentaje >= 20:
-            estado = "Bajo"
-        else:
-            estado = "MuyBajo"
+            # Actualizar cards
+            nivel_text = f"{nivel:.1f} cm" if nivel else "--"
+            self.card_nivel.update_value(nivel_text)
+            self.card_nivel.update_subtitle(f"Estado: {estado}")
 
-        simulated_data = {
-            "nivel": nivel,
-            "porcentaje": porcentaje,
-            "estado": estado,
-            "humedad": random.randint(750, 950),
-            "estado_fuga": "NoFuga" if random.random() > 0.1 else "FugaPeq",
-            "valido": True,
-            "lecturas_ok": len(self.historical_data) + 1,
-            "lecturas_error": random.randint(0, 5),
-        }
+            porcentaje_text = f"{porcentaje:.1f}%" if porcentaje else "--"
+            self.card_porcentaje.update_value(porcentaje_text)
 
-        self.update_ui(simulated_data)
+            self.card_humedad.update_value(str(humedad))
+            self.card_humedad.update_subtitle(estado_fuga)
 
-    def update_ui(self, data):
-        # Update cards
-        nivel_text = f"{data['nivel']:.1f} cm"
-        self.card_nivel.update_value(nivel_text)
-        self.card_nivel.update_subtitle(f"Estado: {data['estado']}")
+            self.card_lecturas.update_value(str(lecturas_ok))
+            self.card_lecturas.update_subtitle(f"{lecturas_error} errores")
 
-        porcentaje_text = f"{data['porcentaje']:.1f}%"
-        self.card_porcentaje.update_value(porcentaje_text)
-        self.card_porcentaje.update_subtitle(
-            f"{100 - data['porcentaje']:.0f}% disponible"
-        )
+            # Actualizar tanque animado
+            self.tank_widget.update_water_level(porcentaje, estado, valido)
 
-        self.card_humedad.update_value(str(data["humedad"]))
-        fuga_text = (
-            "🟢 Sin Fuga" if data["estado_fuga"] == "NoFuga" else "🟡 Fuga Detectada"
-        )
-        self.card_humedad.update_subtitle(fuga_text)
+            # Actualizar gráfico (solo si hay porcentaje)
+            if porcentaje:
+                self.chart_data.append(porcentaje)
+                if len(self.chart_data) > 15:
+                    self.chart_data.pop(0)
 
-        self.card_lecturas.update_value(str(data["lecturas_ok"]))
-        self.card_lecturas.update_subtitle(
-            f"{data['lecturas_error']} errores detectados"
-        )
+                self.series.clear()
+                for i, value in enumerate(self.chart_data):
+                    self.series.append(i * 2, value)
 
-        # Update tank
-        self.tank_widget.update_water_level(
-            data["porcentaje"], data["estado"], data["valido"]
-        )
+            # Guardar en histórico
+            self.historical_data.append(data)
 
-        # Update chart
-        self.chart_data.append(data["porcentaje"])
-        if len(self.chart_data) > 15:
-            self.chart_data.pop(0)
-
-        self.series.clear()
-        for i, value in enumerate(self.chart_data):
-            self.series.append(i * 2, value)
-
-        self.historical_data.append(data)
+        except Exception as e:
+            print(f"❌ Error actualizando dashboard: {e}")
