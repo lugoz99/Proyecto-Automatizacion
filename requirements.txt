@@ -1,0 +1,36 @@
+# ===============================
+# FastAPI + WebSockets
+# ===============================
+fastapi
+uvicorn[standard]
+websockets
+orjson
+
+# ===============================
+# Base de datos (MongoDB)
+# ===============================
+motor
+pymongo
+
+# ===============================
+# Arduino / Serial
+# ===============================
+pyserial
+
+# ===============================
+# Configuración y utilidades
+# ===============================
+python-dotenv
+pydantic
+pydantic-settings
+python-dateutil
+
+# ===============================
+# CORS / Uploads
+# ===============================
+python-multipart
+
+# ===============================
+# Archivos (opcional)
+# ===============================
+aiofiles

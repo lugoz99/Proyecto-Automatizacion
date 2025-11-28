@@ -1,0 +1,227 @@
+import random
+from PyQt5.QtWidgets import (
+    QWidget,
+    QVBoxLayout,
+    QHBoxLayout,
+    QLabel,
+    QFrame,
+    QScrollArea,
+)
+from PyQt5.QtGui import (
+    QPainter,
+    QColor,
+)
+from PyQt5.QtCore import QTimer, Qt
+from PyQt5.QtChart import QChart, QChartView, QValueAxis, QSplineSeries
+
+from widgets.animated_water import AnimatedWaterWidget
+from widgets.modern_card import ModernCard
+
+
+class DashboardSection(QScrollArea):
+    def __init__(self):
+        super().__init__()
+        self.setWidgetResizable(True)
+        self.setStyleSheet("border: none;")
+
+        self.historical_data = []
+        self.chart_data = []
+
+        self.setup_ui()
+        self.setup_chart()
+        self.setup_data_timer()
+
+    def setup_ui(self):
+        content = QWidget()
+        layout = QVBoxLayout(content)
+        layout.setContentsMargins(30, 30, 30, 30)
+        layout.setSpacing(24)
+
+        # Cards row
+        cards_layout = QHBoxLayout()
+        cards_layout.setSpacing(20)
+
+        self.card_nivel = ModernCard(
+            "Nivel de Agua", "--", "Esperando datos...", "💧", "blue"
+        )
+        self.card_porcentaje = ModernCard(
+            "Capacidad", "--", "0% del tanque", "📊", "green"
+        )
+        self.card_humedad = ModernCard(
+            "Sensor Humedad", "--", "Sin fugas", "💦", "cyan"
+        )
+        self.card_lecturas = ModernCard("Lecturas", "0", "0 errores", "✓", "purple")
+
+        cards_layout.addWidget(self.card_nivel)
+        cards_layout.addWidget(self.card_porcentaje)
+        cards_layout.addWidget(self.card_humedad)
+        cards_layout.addWidget(self.card_lecturas)
+        layout.addLayout(cards_layout)
+
+        # Visualization row
+        viz_layout = QHBoxLayout()
+        viz_layout.setSpacing(20)
+
+        # Tank
+        tank_frame = QFrame()
+        tank_frame.setStyleSheet(
+            """
+            QFrame {
+                background: white;
+                border-radius: 16px;
+                border: 1px solid #e2e8f0;
+            }
+        """
+        )
+        tank_layout = QVBoxLayout(tank_frame)
+        tank_layout.setContentsMargins(24, 20, 24, 20)
+
+        tank_title = QLabel("🎯 Visualización del Tanque")
+        tank_title.setStyleSheet(
+            """
+            font-size: 16px;
+            font-weight: 600;
+            color: #0f172a;
+            font-family: 'Segoe UI', Arial;
+            margin-bottom: 10px;
+        """
+        )
+        tank_layout.addWidget(tank_title)
+
+        self.tank_widget = AnimatedWaterWidget()
+        tank_layout.addWidget(self.tank_widget, alignment=Qt.AlignCenter)
+        viz_layout.addWidget(tank_frame, 35)
+
+        # Chart
+        chart_frame = QFrame()
+        chart_frame.setStyleSheet(
+            """
+            QFrame {
+                background: white;
+                border-radius: 16px;
+                border: 1px solid #e2e8f0;
+            }
+        """
+        )
+        chart_layout = QVBoxLayout(chart_frame)
+        chart_layout.setContentsMargins(24, 20, 24, 20)
+
+        chart_title = QLabel("📈 Nivel en Tiempo Real (últimos 30 segundos)")
+        chart_title.setStyleSheet(
+            """
+            font-size: 16px;
+            font-weight: 600;
+            color: #0f172a;
+            font-family: 'Segoe UI', Arial;
+            margin-bottom: 10px;
+        """
+        )
+        chart_layout.addWidget(chart_title)
+
+        self.chart_view = QChartView()
+        self.chart_view.setRenderHint(QPainter.Antialiasing)
+        self.chart_view.setStyleSheet("border: none;")
+        chart_layout.addWidget(self.chart_view)
+        viz_layout.addWidget(chart_frame, 65)
+
+        layout.addLayout(viz_layout)
+        self.setWidget(content)
+
+    def setup_chart(self):
+        self.series = QSplineSeries()
+        self.series.setColor(QColor(59, 130, 246))
+
+        self.chart = QChart()
+        self.chart.addSeries(self.series)
+        self.chart.legend().hide()
+        self.chart.setBackgroundVisible(False)
+
+        self.axis_x = QValueAxis()
+        self.axis_x.setLabelFormat("%d s")
+        self.axis_x.setRange(0, 30)
+        self.axis_x.setTickCount(7)
+
+        self.axis_y = QValueAxis()
+        self.axis_y.setLabelFormat("%.0f%%")
+        self.axis_y.setRange(0, 100)
+        self.axis_y.setTickCount(6)
+
+        self.chart.addAxis(self.axis_x, Qt.AlignBottom)
+        self.chart.addAxis(self.axis_y, Qt.AlignLeft)
+        self.series.attachAxis(self.axis_x)
+        self.series.attachAxis(self.axis_y)
+
+        self.chart_view.setChart(self.chart)
+
+    def setup_data_timer(self):
+        self.data_timer = QTimer()
+        self.data_timer.timeout.connect(self.simulate_data)
+        self.data_timer.start(2000)
+
+    def simulate_data(self):
+        base_nivel = 8.0
+        variation = random.uniform(-2, 3)
+        nivel = max(3, min(20, base_nivel + variation))
+        porcentaje = ((20 - nivel) / 17) * 100
+        porcentaje = max(0, min(100, porcentaje))
+
+        if porcentaje >= 80:
+            estado = "Lleno"
+        elif porcentaje >= 50:
+            estado = "Medio"
+        elif porcentaje >= 20:
+            estado = "Bajo"
+        else:
+            estado = "MuyBajo"
+
+        simulated_data = {
+            "nivel": nivel,
+            "porcentaje": porcentaje,
+            "estado": estado,
+            "humedad": random.randint(750, 950),
+            "estado_fuga": "NoFuga" if random.random() > 0.1 else "FugaPeq",
+            "valido": True,
+            "lecturas_ok": len(self.historical_data) + 1,
+            "lecturas_error": random.randint(0, 5),
+        }
+
+        self.update_ui(simulated_data)
+
+    def update_ui(self, data):
+        # Update cards
+        nivel_text = f"{data['nivel']:.1f} cm"
+        self.card_nivel.update_value(nivel_text)
+        self.card_nivel.update_subtitle(f"Estado: {data['estado']}")
+
+        porcentaje_text = f"{data['porcentaje']:.1f}%"
+        self.card_porcentaje.update_value(porcentaje_text)
+        self.card_porcentaje.update_subtitle(
+            f"{100 - data['porcentaje']:.0f}% disponible"
+        )
+
+        self.card_humedad.update_value(str(data["humedad"]))
+        fuga_text = (
+            "🟢 Sin Fuga" if data["estado_fuga"] == "NoFuga" else "🟡 Fuga Detectada"
+        )
+        self.card_humedad.update_subtitle(fuga_text)
+
+        self.card_lecturas.update_value(str(data["lecturas_ok"]))
+        self.card_lecturas.update_subtitle(
+            f"{data['lecturas_error']} errores detectados"
+        )
+
+        # Update tank
+        self.tank_widget.update_water_level(
+            data["porcentaje"], data["estado"], data["valido"]
+        )
+
+        # Update chart
+        self.chart_data.append(data["porcentaje"])
+        if len(self.chart_data) > 15:
+            self.chart_data.pop(0)
+
+        self.series.clear()
+        for i, value in enumerate(self.chart_data):
+            self.series.append(i * 2, value)
+
+        self.historical_data.append(data)
