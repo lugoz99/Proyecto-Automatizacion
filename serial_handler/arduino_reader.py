@@ -30,7 +30,7 @@ class ArduinoReader(QThread):
                     line = (
                         self.arduino.readline().decode("utf-8", errors="ignore").strip()
                     )
-
+                    print(f"data->", line)
                     if line and self.is_valid_data_line(line):
                         data = self.parse_line(line)
                         if data:

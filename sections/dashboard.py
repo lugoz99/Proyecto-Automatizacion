@@ -42,7 +42,9 @@ class DashboardSection(QScrollArea):
         self.card_porcentaje = ModernCard(
             "Capacidad", "--", "0% del tanque", "📊", "green"
         )
-        self.card_humedad = ModernCard("Estado Fugas", "--", "Sin datos", "💦", "cyan")
+        self.card_humedad = ModernCard(
+            "Detección Fuga", "--", "Sin datos", "💦", "cyan"
+        )  # 🔧 Título cambiado
         self.card_lecturas = ModernCard("Lecturas", "0", "0 errores", "✓", "purple")
 
         cards_layout.addWidget(self.card_nivel)
@@ -168,8 +170,19 @@ class DashboardSection(QScrollArea):
             porcentaje_text = f"{porcentaje:.1f}%" if porcentaje else "--"
             self.card_porcentaje.update_value(porcentaje_text)
 
-            self.card_humedad.update_value(str(humedad))
-            self.card_humedad.update_subtitle(estado_fuga)
+            # 🔧🔧🔧 NUEVA LÓGICA PARA CARD DE FUGA - MÁS CLARA PARA EL USUARIO
+            if estado_fuga == "NoFuga":
+                self.card_humedad.update_value("SECO")
+                self.card_humedad.update_subtitle("✅ Condición Normal")
+            elif estado_fuga == "FugaMedia":
+                self.card_humedad.update_value("HUMEDAD")
+                self.card_humedad.update_subtitle("⚠️ Verificar área")
+            elif estado_fuga == "FugaAlta":
+                self.card_humedad.update_value("FUGA")
+                self.card_humedad.update_subtitle("🚨 Actuar inmediato")
+            else:
+                self.card_humedad.update_value("--")
+                self.card_humedad.update_subtitle("Sin datos del sensor")
 
             self.card_lecturas.update_value(str(lecturas_ok))
             self.card_lecturas.update_subtitle(f"{lecturas_error} errores")
